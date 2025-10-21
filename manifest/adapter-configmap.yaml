@@ -3,4 +3,4 @@ kind: ConfigMap
 metadata:
   name: adapter-config
 data:
-  DEVTRON_URL: "http://google.com"
+  DEVTRON_URL: "https://preview.devtron.ai/orchestrator/app/ci-pipeline/trigger"
