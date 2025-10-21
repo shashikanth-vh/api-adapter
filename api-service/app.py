@@ -13,10 +13,11 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 # Configurable endpoints & credentials
 DEVTRON_URL = os.getenv("DEVTRON_URL", "").rstrip("/")  # require explicit value in env ideally
-DEVTRON_USER = os.getenv("DEVTRON_USER", "")
-DEVTRON_PASSWORD = os.getenv("DEVTRON_PASSWORD", "")
 REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "10"))  # seconds
 DEVTRON_VERIFY_SSL = os.getenv("DEVTRON_VERIFY_SSL", "true").lower() in ("1", "true", "yes")
+
+# Token to include in Devtron requests
+DEVTRON_TOKEN = os.getenv("DEVTRON_TOKEN", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6IkFQSS1UT0tFTjpkb2NvbW8tYWRhcHRvci10ZXN0IiwidmVyc2lvbiI6IjEiLCJpc3MiOiJhcGlUb2tlbklzc3VlciIsImV4cCI6MTc2MzYzNTcwM30.4NcRkvHNCLvyvTeGT5wFCO9yCx5cHiF5vL4FofUbrBs")
 
 # Create a Session with retry/backoff to handle transient network issues
 session = requests.Session()
@@ -44,6 +45,15 @@ def healthz():
 def lccnsub_handler():
     logging.info(f"Incoming {request.method} request at {request.path}")
 
+    auth = None
+    if request.authorization and request.authorization.type.lower() == "basic":
+        #logging.info("Using Basic Auth credentials supplied by client (Authorization header).")
+        auth = HTTPBasicAuth(request.authorization.username, request.authorization.password)
+    else:
+        logging.error("Missing Basic Auth credentials in request.")
+        return jsonify({"error": "Missing or invalid Basic Auth credentials"}), 401
+
+
     if request.method == "GET":
         logging.info("Responding with 204 No Content for GET request.")
         return make_response("", 204)
@@ -54,6 +64,7 @@ def lccnsub_handler():
         return jsonify({"error": "DEVTRON_URL not configured"}), 500
 
     try:
+
         # Dump incoming POST request
         logging.info("----- Incoming POST Request Dump -----")
         logging.info(f"Headers: {dict(request.headers)}")
@@ -77,6 +88,12 @@ def lccnsub_handler():
 
         # Build headers to forward (selective)
         forward_headers = {}
+        forward_headers["token"] = DEVTRON_TOKEN
+       
+        if "token" in request.headers:
+            forward_headers["token"] = request.headers["token"]
+
+ 
         # Forward Authorization header if present (caller responsibility)
         if "Authorization" in request.headers:
             forward_headers["Authorization"] = request.headers["Authorization"]
@@ -88,9 +105,9 @@ def lccnsub_handler():
             forward_headers["Content-Type"] = content_type
 
         # Setup auth if provided
-        auth = None
-        if DEVTRON_USER and DEVTRON_PASSWORD:
-            auth = HTTPBasicAuth(DEVTRON_USER, DEVTRON_PASSWORD)
+        #auth = None
+        #if DEVTRON_USER and DEVTRON_PASSWORD:
+        #    auth = HTTPBasicAuth(DEVTRON_USER, DEVTRON_PASSWORD)
 
         # Use session to forward
         if is_json:
