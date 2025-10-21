@@ -5,6 +5,7 @@ import os
 from requests.auth import HTTPBasicAuth
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+import json
 
 app = Flask(__name__)
 
@@ -79,6 +80,13 @@ def lccnsub_handler():
         # Determine payload type
         if content_type and "application/json" in content_type.lower():
             payload = request.get_json(silent=True)
+            is_json = True
+        elif "application/x-www-form-urlencoded" in content_type:
+            # Case 2: URL-encoded JSON body
+            if not request.form:
+                return jsonify({"error": "Empty form data"}), 400
+            encoded_json = list(request.form.keys())[0]
+            payload = json.loads(encoded_json)
             is_json = True
         else:
             payload = request.get_data() or b""
