@@ -54,6 +54,16 @@ def lccnsub_handler():
         return jsonify({"error": "DEVTRON_URL not configured"}), 500
 
     try:
+        # Dump incoming POST request
+        logging.info("----- Incoming POST Request Dump -----")
+        logging.info(f"Headers: {dict(request.headers)}")
+        try:
+            logging.info(f"JSON body: {request.get_json(silent=True)}")
+        except Exception:
+            logging.warning("Failed to parse JSON body")
+        logging.info(f"Raw body: {request.get_data(as_text=True)}")
+        logging.info("----- End of Request Dump -----")
+
         content_type = request.headers.get("Content-Type", "")
         # Determine payload type
         if content_type and "application/json" in content_type.lower():
