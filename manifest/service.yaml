@@ -1,0 +1,18 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: api-service
+  labels:
+    app: api-adapter
+spec:
+  type: NodePort
+  selector:
+    app: api-adapter
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 6000
+    nodePort: 30085
+

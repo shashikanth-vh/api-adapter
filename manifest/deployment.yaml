@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-adapter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-adapter
+  template:
+    metadata:
+      labels:
+        app: api-adapter
+    spec:
+      containers:
+      - name: adapter
+        image: shashikanthvh/api-adapter:latest
+        ports:
+        - containerPort: 6000
+        envFrom:
+        - configMapRef:
+            name: adapter-config
+        - secretRef:
+            name: adapter-credentials
