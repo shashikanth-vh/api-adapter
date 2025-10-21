@@ -4,3 +4,4 @@ metadata:
   name: adapter-config
 data:
   DEVTRON_URL: "https://preview.devtron.ai/orchestrator/app/ci-pipeline/trigger"
+  DEVTRON_VERIFY_SSL: "false"
