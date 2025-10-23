@@ -14,6 +14,17 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 # Configurable endpoints & credentials
 DEVTRON_URL = os.getenv("DEVTRON_URL", "").rstrip("/")  # require explicit value in env ideally
+
+_RAW_REST_REQ_BODY = os.getenv("REST_REQ_BODY", "").strip()
+# Try to parse REST_REQ_BODY at startup so we know the real type
+try:
+    REST_REQ_BODY = json.loads(_RAW_REST_REQ_BODY) if _RAW_REST_REQ_BODY else None
+except json.JSONDecodeError:
+    REST_REQ_BODY = None
+    # keep the raw string if it's not JSON
+    logging.warning("REST_REQ_BODY is not valid JSON; will be forwarded as raw text")
+
+
 REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "10"))  # seconds
 DEVTRON_VERIFY_SSL = os.getenv("DEVTRON_VERIFY_SSL", "true").lower() in ("1", "true", "yes")
 
@@ -70,7 +81,8 @@ def lccnsub_handler():
         logging.info("----- Incoming POST Request Dump -----")
         logging.info(f"Headers: {dict(request.headers)}")
         try:
-            logging.info(f"JSON body: {request.get_json(silent=True)}")
+            logging.info(f"Received JSON body: {request.get_json(silent=True)}")
+            logging.info(f"Sending JSON body: {REST_REQ_BODY}")
         except Exception:
             logging.warning("Failed to parse JSON body")
         logging.info(f"Raw body: {request.get_data(as_text=True)}")
@@ -79,14 +91,16 @@ def lccnsub_handler():
         content_type = request.headers.get("Content-Type", "")
         # Determine payload type
         if content_type and "application/json" in content_type.lower():
-            payload = request.get_json(silent=True)
+            #payload = request.get_json(silent=True)
+            payload = REST_REQ_BODY
             is_json = True
         elif "application/x-www-form-urlencoded" in content_type:
             # Case 2: URL-encoded JSON body
             if not request.form:
                 return jsonify({"error": "Empty form data"}), 400
             encoded_json = list(request.form.keys())[0]
-            payload = json.loads(encoded_json)
+            #payload = json.loads(encoded_json)
+            payload = REST_REQ_BODY
             is_json = True
         else:
             payload = request.get_data() or b""
@@ -142,6 +156,13 @@ def lccnsub_handler():
         # Prepare response to caller
         resp_headers = filter_response_headers(resp.headers)
         content_type_resp = resp_headers.get("Content-Type")
+
+        # -------------------------------------------------------------------
+        #  Success Case: always return 204
+        # -------------------------------------------------------------------
+        if 200 <= resp.status_code < 300:
+            logging.info(f"Devtron responded {resp.status_code}, returning 204 No Content")
+            return "", 204
 
         response = Response(resp.content, status=resp.status_code, headers=resp_headers)
         if content_type_resp:

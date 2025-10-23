@@ -5,3 +5,20 @@ metadata:
 data:
   DEVTRON_URL: "https://preview.devtron.ai/orchestrator/app/ci-pipeline/trigger"
   DEVTRON_VERIFY_SSL: "false"
+  REST_REQ_BODY: |
+    {
+      "pipelineId": 337,
+      "ciPipelineMaterials": [
+        {
+          "Id": 344,
+          "GitCommit": {
+            "Commit": "1df32f437520f3d5f7d379511bdcb76ebf851cfb"
+          }
+        }
+      ],
+      "invalidateCache": false,
+      "pipelineType": "CI_BUILD",
+      "runtimeParams": {
+        "runtimePluginVariables": []
+      }
+    }
