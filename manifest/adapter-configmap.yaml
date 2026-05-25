@@ -3,8 +3,10 @@ kind: ConfigMap
 metadata:
   name: adapter-config
 data:
+  # Existing Devtron CI trigger configuration - retained for /adapter/lccnsub
   DEVTRON_URL: "https://preview.devtron.ai/orchestrator/app/ci-pipeline/trigger"
   DEVTRON_VERIFY_SSL: "false"
+  REQUEST_TIMEOUT: "10"
   REST_REQ_BODY: |
     {
       "pipelineId": 337,
@@ -20,5 +22,142 @@ data:
       "pipelineType": "CI_BUILD",
       "runtimeParams": {
         "runtimePluginVariables": []
+      }
+    }
+
+  # PM job creation in Tacker. Set URL and full JSON body here; no code change needed.
+  PM_JOB_CREATE_ON_STARTUP: "true"
+  PM_JOB_CREATE_STARTUP_DELAY_SECONDS: "2"
+  TACKER_PM_JOB_URL: "http://127.0.0.1:9890/vnfpm/v2/pm_jobs"
+  TACKER_VERIFY_SSL: "false"
+  TACKER_REQUEST_TIMEOUT: "10"
+  TACKER_PM_JOB_BODY: |
+    {
+      "objectType": "Vnf",
+      "objectInstanceIds": [
+        "7beb68bb-6b40-47e2-9e41-6312689407c6"
+      ],
+      "subObjectInstanceIds": [],
+      "criteria": {
+        "performanceMetric": [
+          "VCpuUsageMeanVnf.7beb68bb-6b40-47e2-9e41-6312689407c6"
+        ],
+        "performanceMetricGroup": [
+          "VirtualisedComputeResource"
+        ],
+        "collectionPeriod": 60,
+        "reportingPeriod": 60,
+        "reportingBoundary": "2026-12-31T00:00:00Z"
+      },
+      "callbackUri": "http://api-service/api/pm/callback",
+      "authentication": {
+        "authType": [
+          "BASIC"
+        ],
+        "paramsBasic": {
+          "userName": "ubuntu",
+          "password": "ubuntu"
+        }
+      },
+      "metadata": {
+        "monitoring": {
+          "monitorName": "prometheus",
+          "driverType": "external",
+          "targetsInfo": [
+            {
+              "prometheusHost": "10.0.0.75",
+              "prometheusHostPort": 22,
+              "alertmanagerHost": "10.0.0.75",
+              "authInfo": {
+                "ssh_username": "ubuntu",
+                "ssh_password": "ubuntu"
+              },
+              "alertRuleConfigPath": "/etc/prometheus/rules",
+              "prometheusReloadApiEndpoint": "http://10.110.214.67:9090/-/reload"
+            }
+          ]
+        }
+      }
+    }
+
+  # Pushgateway / Prometheus endpoint used after fetching PM report from Tacker.
+  # For real Pushgateway use: http://<pushgateway-host>:9091
+  # For local mock endpoint in this adapter use: http://api-service
+  PUSHGATEWAY_BASE_URL: "http://localhost:9091"
+  PUSHGATEWAY_VERIFY_SSL: "false"
+  PERFORMANCE_METRICS_MOCK_MODE: "false"
+
+  # Devtron action APIs called when Prometheus/Alertmanager posts to /adapter/prometheus/alerts.
+  # Existing heal envs are retained for backward compatibility.
+  DEVTRON_HEALING_URL: "https://preview.devtron.ai/orchestrator/app/ci-pipeline/trigger"
+  DEVTRON_HEALING_VERIFY_SSL: "false"
+  DEVTRON_HEALING_BODY: |
+    {
+      "pipelineId": 337,
+      "ciPipelineMaterials": [
+        {
+          "Id": 344,
+          "GitCommit": {
+            "Commit": "1df32f437520f3d5f7d379511bdcb76ebf851cfb"
+          }
+        }
+      ],
+      "invalidateCache": false,
+      "pipelineType": "CI_BUILD",
+      "runtimeParams": {
+        "runtimePluginVariables": []
+      }
+    }
+
+  # Generic Devtron action map. Add future actions here without changing code.
+  # Existing /adapter/prometheus/alerts defaults to heal.
+  # New migrate can be triggered by /adapter/prometheus/alerts/migrate, ?action=migrate, or alert label action=migrate.
+  DEFAULT_DEVTRON_ACTION: "heal"
+  DEVTRON_ACTIONS: |
+    {
+      "heal": {
+        "url": "https://preview.devtron.ai/orchestrator/app/ci-pipeline/trigger",
+        "verify_ssl": false,
+        "body": {
+          "pipelineId": 337,
+          "ciPipelineMaterials": [
+            {
+              "Id": 344,
+              "GitCommit": {
+                "Commit": "1df32f437520f3d5f7d379511bdcb76ebf851cfb"
+              }
+            }
+          ],
+          "invalidateCache": false,
+          "pipelineType": "CI_BUILD",
+          "runtimeParams": {
+            "runtimePluginVariables": []
+          }
+        }
+      },
+      "migrate": {
+        "url": "https://preview.devtron.ai/orchestrator/app/ci-pipeline/trigger",
+        "verify_ssl": false,
+        "body": {
+          "pipelineId": 337,
+          "ciPipelineMaterials": [
+            {
+              "Id": 344,
+              "GitCommit": {
+                "Commit": "1df32f437520f3d5f7d379511bdcb76ebf851cfb"
+              }
+            }
+          ],
+          "invalidateCache": false,
+          "pipelineType": "CI_BUILD",
+          "runtimeParams": {
+            "runtimePluginVariables": [
+              {
+                "name": "ACTION",
+                "value": "migrate"
+              }
+            ]
+          }
+        }
       }
     }
