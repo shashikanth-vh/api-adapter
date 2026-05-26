@@ -1,0 +1,549 @@
+{
+  "info": {
+    "_postman_id": "b77a14db-1d1e-45f0-aa31-actual-adapter-pm",
+    "name": "Adapter PM - Actual Functionality Only",
+    "description": "Postman collection for actual adapter functionality only. Mock/workaround endpoints are intentionally excluded. Adapter creates PM jobs, receives Tacker callback, fetches PM report, pushes to Pushgateway, and invokes Devtron jobs for heal/migrate.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "adapterBaseUrl",
+      "value": "http://localhost:6000"
+    },
+    {
+      "key": "tackerBaseUrl",
+      "value": "http://127.0.0.1:9890"
+    },
+    {
+      "key": "basicUsername",
+      "value": "ubuntu"
+    },
+    {
+      "key": "basicPassword",
+      "value": "ubuntu"
+    },
+    {
+      "key": "vnfInstanceId",
+      "value": "7beb68bb-6b40-47e2-9e41-6312689407c6"
+    },
+    {
+      "key": "metricInstanceId",
+      "value": "a0205e7c-fdeb-4f6c-b266-962246e32626"
+    },
+    {
+      "key": "pmJobId",
+      "value": "4a876fea-b0c2-4471-899c-2ab02f2cce62"
+    },
+    {
+      "key": "reportId",
+      "value": "fae1a25e-2761-4140-8f19-c095c83ee7d7"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adapterBaseUrl}}/healthz",
+              "host": [
+                "{{adapterBaseUrl}}"
+              ],
+              "path": [
+                "healthz"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "Existing LCCN Subscription Forwarding",
+      "item": [
+        {
+          "name": "Validate LCCN callback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adapterBaseUrl}}/adapter/lccnsub",
+              "host": [
+                "{{adapterBaseUrl}}"
+              ],
+              "path": [
+                "adapter",
+                "lccnsub"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{basicUsername}}",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "{{basicPassword}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Forward LCCN request to Devtron",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{adapterBaseUrl}}/adapter/lccnsub",
+              "host": [
+                "{{adapterBaseUrl}}"
+              ],
+              "path": [
+                "adapter",
+                "lccnsub"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sample\": \"Existing /adapter/lccnsub receives a body but forwards REST_REQ_BODY from ConfigMap to DEVTRON_URL\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{basicUsername}}",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "{{basicPassword}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "PM Job",
+      "item": [
+        {
+          "name": "Create PM job in Tacker via adapter",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{adapterBaseUrl}}/adapter/pm/jobs",
+              "host": [
+                "{{adapterBaseUrl}}"
+              ],
+              "path": [
+                "adapter",
+                "pm",
+                "jobs"
+              ]
+            },
+            "description": "Adapter uses TACKER_PM_JOB_URL and TACKER_PM_JOB_BODY from ConfigMap. No request body required."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tacker Callback",
+      "item": [
+        {
+          "name": "Callback validation from Tacker",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adapterBaseUrl}}/api/pm/callback",
+              "host": [
+                "{{adapterBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pm",
+                "callback"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{basicUsername}}",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "{{basicPassword}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Receive PM notification from Tacker",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{adapterBaseUrl}}/api/pm/callback",
+              "host": [
+                "{{adapterBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pm",
+                "callback"
+              ]
+            },
+            "description": "Adapter fetches performanceReport.href from Tacker, then exports metrics to Pushgateway.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"6d0c5e29-093d-4945-84df-768c062972b1\",\n  \"notificationType\": \"PerformanceInformationAvailableNotification\",\n  \"timeStamp\": \"2026-05-11T13:23:22Z\",\n  \"pmJobId\": \"{{pmJobId}}\",\n  \"objectType\": \"Vnf\",\n  \"objectInstanceId\": \"{{vnfInstanceId}}\",\n  \"_links\": {\n    \"performanceReport\": {\n      \"href\": \"{{tackerBaseUrl}}/vnfpm/v2/pm_jobs/{{pmJobId}}/reports/{{reportId}}\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{basicUsername}}",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "{{basicPassword}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Performance Metrics",
+      "item": [
+        {
+          "name": "Process PM report entries and push to Pushgateway",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{adapterBaseUrl}}/adapter/performance-metrics",
+              "host": [
+                "{{adapterBaseUrl}}"
+              ],
+              "path": [
+                "adapter",
+                "performance-metrics"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entries\": [\n    {\n      \"objectType\": \"Vnf\",\n      \"objectInstanceId\": \"{{metricInstanceId}}\",\n      \"performanceMetric\": \"VCpuUsageMeanVnf.{{metricInstanceId}}\",\n      \"performanceValues\": [\n        {\n          \"timeStamp\": \"2024-09-24T14:22:27Z\",\n          \"value\": \"1.0002889206831795\"\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Prometheus Alert to Devtron Actions",
+      "item": [
+        {
+          "name": "Default alert action - heal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{adapterBaseUrl}}/adapter/prometheus/alerts",
+              "host": [
+                "{{adapterBaseUrl}}"
+              ],
+              "path": [
+                "adapter",
+                "prometheus",
+                "alerts"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiver\": \"adapter-remediation\",\n  \"status\": \"firing\",\n  \"alerts\": [\n    {\n      \"labels\": {\n        \"alertname\": \"HighCpuUsage\",\n        \"instance_id\": \"{{metricInstanceId}}\",\n        \"action\": \"heal\"\n      },\n      \"annotations\": {\n        \"summary\": \"CPU threshold exceeded\"\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Explicit heal action",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{adapterBaseUrl}}/adapter/prometheus/alerts/heal",
+              "host": [
+                "{{adapterBaseUrl}}"
+              ],
+              "path": [
+                "adapter",
+                "prometheus",
+                "alerts",
+                "heal"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiver\": \"adapter-remediation\",\n  \"status\": \"firing\",\n  \"alerts\": [\n    {\n      \"labels\": {\n        \"alertname\": \"HighCpuUsage\",\n        \"instance_id\": \"{{metricInstanceId}}\",\n        \"action\": \"heal\"\n      },\n      \"annotations\": {\n        \"summary\": \"CPU threshold exceeded\"\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Explicit migrate action",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{adapterBaseUrl}}/adapter/prometheus/alerts/migrate",
+              "host": [
+                "{{adapterBaseUrl}}"
+              ],
+              "path": [
+                "adapter",
+                "prometheus",
+                "alerts",
+                "migrate"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiver\": \"adapter-remediation\",\n  \"status\": \"firing\",\n  \"alerts\": [\n    {\n      \"labels\": {\n        \"alertname\": \"HighCpuUsage\",\n        \"instance_id\": \"{{metricInstanceId}}\",\n        \"action\": \"migrate\"\n      },\n      \"annotations\": {\n        \"summary\": \"CPU threshold exceeded and migration is required\"\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Migrate via query parameter",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{adapterBaseUrl}}/adapter/prometheus/alerts?action=migrate",
+              "host": [
+                "{{adapterBaseUrl}}"
+              ],
+              "path": [
+                "adapter",
+                "prometheus",
+                "alerts"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiver\": \"adapter-remediation\",\n  \"status\": \"firing\",\n  \"alerts\": [\n    {\n      \"labels\": {\n        \"alertname\": \"HighCpuUsage\",\n        \"instance_id\": \"{{metricInstanceId}}\",\n        \"action\": \"migrate\"\n      },\n      \"annotations\": {\n        \"summary\": \"CPU threshold exceeded and migration is required\"\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Alias API - heal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{adapterBaseUrl}}/api/prometheus/alerts/heal",
+              "host": [
+                "{{adapterBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "prometheus",
+                "alerts",
+                "heal"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiver\": \"adapter-remediation\",\n  \"status\": \"firing\",\n  \"alerts\": [\n    {\n      \"labels\": {\n        \"alertname\": \"HighCpuUsage\",\n        \"instance_id\": \"{{metricInstanceId}}\",\n        \"action\": \"heal\"\n      },\n      \"annotations\": {\n        \"summary\": \"CPU threshold exceeded\"\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Alias API - migrate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{adapterBaseUrl}}/api/prometheus/alerts/migrate",
+              "host": [
+                "{{adapterBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "prometheus",
+                "alerts",
+                "migrate"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiver\": \"adapter-remediation\",\n  \"status\": \"firing\",\n  \"alerts\": [\n    {\n      \"labels\": {\n        \"alertname\": \"HighCpuUsage\",\n        \"instance_id\": \"{{metricInstanceId}}\",\n        \"action\": \"migrate\"\n      },\n      \"annotations\": {\n        \"summary\": \"CPU threshold exceeded and migration is required\"\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "PM Processing History",
+      "item": [
+        {
+          "name": "Get PM processing history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adapterBaseUrl}}/adapter/pm/history",
+              "host": [
+                "{{adapterBaseUrl}}"
+              ],
+              "path": [
+                "adapter",
+                "pm",
+                "history"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Clear PM processing history",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{adapterBaseUrl}}/adapter/pm/history",
+              "host": [
+                "{{adapterBaseUrl}}"
+              ],
+              "path": [
+                "adapter",
+                "pm",
+                "history"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    }
+  ]
+}

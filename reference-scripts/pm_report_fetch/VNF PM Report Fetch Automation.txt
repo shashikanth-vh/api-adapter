@@ -1,0 +1,207 @@
+VNF PM Report Fetch Automation
+===============================
+
+This script fetches a specific VNF Performance Management (PM) Report
+from the OpenStack Tacker v2 API (ETSI NFV SOL003).
+
+PM Reports contain time-series performance data (e.g. CPU usage) that
+Tacker has collected for a VNF instance during a PM Job. A new report
+is generated at each reportingPeriod interval, and a notification is
+sent to the callbackUri configured in the PM Job.
+
+API Reference: GET /vnfpm/v2/pm_jobs/{pmJobId}/reports/{reportId}
+Standard     : ETSI GS NFV-SOL 003 v4.5.1, clause 6.5.8
+
+
+Prerequisites
+-------------
+
+1. PM Job must exist
+
+   A PM Job must have been created via the PM Job Create script
+   (vnf_pm_job_create.sh) and must be active. Note the PM Job ID
+   from the creation response.
+
+2. Report must be available
+
+   A report is generated only after the first reportingPeriod has
+   elapsed. You will receive a callback notification at the
+   callbackUri when a report is ready.
+
+3. PM Job ID and Report ID
+
+   Both are needed to fetch a report. They can be obtained from:
+
+   a) The PerformanceInformationAvailableNotification sent by Tacker
+      to the callbackUri. Example notification body:
+
+      {
+        "id": "6d0c5e29-093d-4945-84df-768c062972b1",
+        "notificationType": "PerformanceInformationAvailableNotification",
+        "timeStamp": "2026-05-11T13:23:22Z",
+        "pmJobId": "4a876fea-b0c2-4471-899c-2ab02f2cce62",
+        "objectType": "Vnf",
+        "objectInstanceId": "7beb68bb-6b40-47e2-9e41-6312689407c6",
+        "_links": {
+          "performanceReport": {
+            "href": "http://127.0.0.1:9890/vnfpm/v2/pm_jobs/4a876fea-b0c2-4471-899c-2ab02f2cce62/reports/fae1a25e-2761-4140-8f19-c095c83ee7d7"
+          }
+        }
+      }
+
+      From this:
+        PM_JOB_ID = 4a876fea-b0c2-4471-899c-2ab02f2cce62  (pmJobId field)
+        REPORT_ID = fae1a25e-2761-4140-8f19-c095c83ee7d7  (last segment of href)
+
+   b) The PM Job Create script output (PM Job ID only).
+      The Report ID is available only after the first report is generated.
+
+
+Files
+-----
+
+  vnf_pm_report_fetch.sh   — Main script (do not edit unless customizing logic)
+  pm_report_config.conf    — All configurable parameters (edit this)
+
+
+Configuration (pm_report_config.conf)
+--------------------------------------
+
+Edit pm_report_config.conf before running the script. Key parameters:
+
+  Keystone Auth
+  ~~~~~~~~~~~~~
+  KEYSTONE_URL      URL of Keystone v3 token endpoint
+  USERNAME          OpenStack username
+  PASSWORD          OpenStack password
+  USER_DOMAIN_ID    Domain ID for the user (usually "default")
+  PROJECT_NAME      OpenStack project/tenant name
+  PROJECT_DOMAIN_ID Domain ID for the project (usually "default")
+
+  Tacker API
+  ~~~~~~~~~~
+  PROTOCOL          http or https
+  HOST              IP address of the Tacker server
+  PORT              Tacker API port (typically 9890)
+  API_VERSION       v2
+  USER_AGENT        python-tackerclient
+  API_VERSION_HEADER  2.0.0
+
+  Report Parameters
+  ~~~~~~~~~~~~~~~~~
+  PM_JOB_ID         UUID of the PM Job (from create response or notification)
+  REPORT_ID         UUID of the specific report (from notification href)
+
+  Output Options
+  ~~~~~~~~~~~~~~
+  SAVE_REPORT_TO_FILE   true | false — whether to write the report JSON to disk
+  REPORT_OUTPUT_FILE    Filename to write to (leave blank for auto-generated name)
+                        Auto-generated format: pm_report_<pmJobId>_<reportId>.json
+
+
+Script Execution
+----------------
+
+1. Make the script executable:
+
+   chmod +x vnf_pm_report_fetch.sh
+
+2. Edit the config file with your PM Job ID and Report ID:
+
+   vi pm_report_config.conf
+
+3. Run the script:
+
+   ./vnf_pm_report_fetch.sh
+
+
+Expected Output
+---------------
+
+On success (HTTP 200), the script prints the full report JSON and a summary:
+
+  ✅ PM Report fetched successfully (HTTP 200).
+
+  ┌─────────────────────────────────────────────────────────┐
+  │  PM Report Summary
+  │
+  │  Report ID      : fae1a25e-2761-4140-8f19-c095c83ee7d7
+  │  PM Job ID      : 4a876fea-b0c2-4471-899c-2ab02f2cce62
+  │  Entries found  : 5
+  │  Metrics        :
+  │    - VCpuUsageMeanVnf.7beb68bb-6b40-47e2-9e41-6312689407c6
+  │  Start Time     : 2026-05-11T13:00:00Z
+  │  Stop Time      : 2026-05-11T13:01:00Z
+  └─────────────────────────────────────────────────────────┘
+
+  💾 Report saved to: pm_report_4a876fea-..._fae1a25e-....json
+
+If SAVE_REPORT_TO_FILE=true, the complete JSON is also written to disk.
+
+
+PM Report JSON Structure (Reference)
+--------------------------------------
+
+A successful response body contains a structure similar to:
+
+  {
+    "id": "<reportId>",
+    "jobId": "<pmJobId>",
+    "entries": [
+      {
+        "objectType": "Vnf",
+        "objectInstanceId": "<vnfInstanceId>",
+        "subObjectInstanceId": null,
+        "performanceMetric": "VCpuUsageMeanVnf.<vnfInstanceId>",
+        "performanceValues": [
+          {
+            "timeStamp": "2026-05-11T13:00:00Z",
+            "value": "0.1234"
+          }
+        ]
+      }
+    ],
+    "_links": {
+      "self": {
+        "href": "http://<HOST>:9890/vnfpm/v2/pm_jobs/<pmJobId>/reports/<reportId>"
+      },
+      "pmJob": {
+        "href": "http://<HOST>:9890/vnfpm/v2/pm_jobs/<pmJobId>"
+      }
+    }
+  }
+
+  Key fields:
+  - entries[].performanceMetric     : name of the metric collected
+  - entries[].performanceValues[]   : array of timestamp + value pairs
+  - entries[].performanceValues[].value : the actual metric reading
+
+
+Common Errors
+-------------
+
+HTTP 400  Bad Request     — Malformed UUID or invalid request parameter
+HTTP 401  Unauthorized    — Keystone token invalid; check credentials
+HTTP 404  Not Found       — PM_JOB_ID or REPORT_ID does not exist.
+                            Possible causes:
+                            - Wrong IDs copied from notification
+                            - Report has expired (past reportingBoundary)
+                            - PM Job was deleted
+HTTP 406  Not Acceptable  — API version mismatch; check API_VERSION_HEADER
+
+
+Workflow Summary (End to End)
+------------------------------
+
+  Step 1: Configure and run vnf_pm_job_create.sh
+          → Note the PM Job ID from output
+
+  Step 2: Wait for REPORTING_PERIOD seconds
+
+  Step 3: Receive PerformanceInformationAvailableNotification on callbackUri
+          → Extract pmJobId and reportId from the notification
+
+  Step 4: Set PM_JOB_ID and REPORT_ID in pm_report_config.conf
+
+  Step 5: Run vnf_pm_report_fetch.sh
+          → Report JSON is printed and optionally saved to file

@@ -1,0 +1,181 @@
+VNF PM Job Create Automation
+============================
+
+This script creates a VNF Performance Management (PM) Job via the
+OpenStack Tacker v2 API (ETSI NFV SOL003).
+
+A PM Job groups details of performance collection and reporting for one or
+more VNF instances. Once created, Tacker periodically collects metrics
+(e.g. CPU usage) and sends notifications to the configured callbackUri
+when a new report is available.
+
+API Reference: POST /vnfpm/v2/pm_jobs
+Standard     : ETSI GS NFV-SOL 003 v4.5.1, clause 6.5.2
+
+
+Prerequisites
+-------------
+
+1. OpenStack Environment
+
+   A running OpenStack Tacker environment is required.
+   Ensure the tacker and openstack CLI clients are installed and configured.
+
+2. VNF Instance
+
+   A valid and instantiated VNF instance must exist. Note the VNF Instance
+   ID — it is required in the config.
+
+3. Prometheus / Alertmanager
+
+   A reachable Prometheus server (with SSH access) must be running to
+   receive alert rules pushed by Tacker's external monitoring driver.
+
+4. Devtron Callback Endpoint
+
+   The callbackUri must be reachable from the Tacker server. Tacker will
+   POST a PerformanceInformationAvailableNotification to this URL whenever
+   a new report is ready.
+
+
+Files
+-----
+
+  vnf_pm_job_create.sh   — Main script (do not edit unless customizing logic)
+  pm_job_config.conf     — All configurable parameters (edit this)
+
+
+Configuration (pm_job_config.conf)
+-----------------------------------
+
+Edit pm_job_config.conf before running the script. Key parameters:
+
+  Keystone Auth
+  ~~~~~~~~~~~~~
+  KEYSTONE_URL    URL of Keystone v3 token endpoint
+  USERNAME        OpenStack username (e.g. nfv_user)
+  PASSWORD        OpenStack password
+  USER_DOMAIN_ID  Domain ID for the user (usually "default")
+  PROJECT_NAME    OpenStack project/tenant name
+  PROJECT_DOMAIN_ID Domain ID for the project (usually "default")
+
+  Tacker API
+  ~~~~~~~~~~
+  PROTOCOL        http or https
+  HOST            IP address of the Tacker server
+  PORT            Tacker API port (typically 9890)
+  API_VERSION     v2
+  USER_AGENT      python-tackerclient
+  API_VERSION_HEADER  2.0.0
+
+  VNF / PM Job Parameters
+  ~~~~~~~~~~~~~~~~~~~~~~~
+  VNF_INSTANCE_ID         UUID of the target VNF instance
+  OBJECT_TYPE             Vnf
+  PERFORMANCE_METRIC      e.g. VCpuUsageMeanVnf.<VNF_INSTANCE_ID>
+  PERFORMANCE_METRIC_GROUP VirtualisedComputeResource
+  COLLECTION_PERIOD       Seconds between metric collections (e.g. 60)
+  REPORTING_PERIOD        Seconds between reports; must be >= COLLECTION_PERIOD
+  REPORTING_BOUNDARY      ISO 8601 datetime after which reporting stops
+
+  Callback
+  ~~~~~~~~
+  CALLBACK_URI            Full URL of Devtron callback API endpoint
+  AUTH_TYPE               BASIC (or OAUTH2_CLIENT_CREDENTIALS)
+  CALLBACK_USERNAME       Username for callback endpoint authentication
+  CALLBACK_PASSWORD       Password for callback endpoint authentication
+
+  Prometheus Metadata
+  ~~~~~~~~~~~~~~~~~~~
+  MONITOR_NAME            prometheus
+  DRIVER_TYPE             external
+  PROMETHEUS_HOST         IP of Prometheus server
+  PROMETHEUS_HOST_PORT    SSH port of Prometheus server (typically 22)
+  ALERTMANAGER_HOST       IP of Alertmanager server
+  SSH_USERNAME            SSH username for Prometheus/Alertmanager host
+  SSH_PASSWORD            SSH password for Prometheus/Alertmanager host
+  ALERT_RULE_CONFIG_PATH  Remote path for alert rule files (e.g. /etc/prometheus/rules)
+  PROMETHEUS_RELOAD_API   Prometheus reload endpoint URL
+
+
+Script Execution
+----------------
+
+1. Make the script executable:
+
+   chmod +x vnf_pm_job_create.sh
+
+2. Edit the config file with your environment values:
+
+   vi pm_job_config.conf
+
+3. Run the script:
+
+   ./vnf_pm_job_create.sh
+
+
+Expected Output
+---------------
+
+On success (HTTP 201), the script will print:
+
+  ✅ PM Job created successfully (HTTP 201).
+
+  ┌─────────────────────────────────────────────────────────┐
+  │  PM Job ID: <uuid>
+  │
+  │  ⚠  Save this PM Job ID — it is required for:
+  │     - Fetching performance reports
+  │     - Deleting or modifying this PM job
+  │
+  │  Report fetch URL:
+  │  http://<HOST>:9890/vnfpm/v2/pm_jobs/<pmJobId>/reports/<reportId>
+  └─────────────────────────────────────────────────────────┘
+
+  ➡ Copy the PM Job ID and use it in pm_report_config.conf for the
+    PM Report Fetch script.
+
+On failure, the HTTP status and error body are printed for diagnosis.
+
+
+What Happens After Job Creation
+--------------------------------
+
+1. Tacker begins collecting the configured performance metrics at
+   COLLECTION_PERIOD intervals.
+
+2. At each REPORTING_PERIOD, Tacker compiles a report and posts a
+   PerformanceInformationAvailableNotification to the CALLBACK_URI.
+
+3. The notification body contains:
+   - pmJobId   : the PM Job UUID
+   - _links.performanceReport.href : full URL to fetch the report
+
+   Example notification:
+   {
+     "id": "6d0c5e29-...",
+     "notificationType": "PerformanceInformationAvailableNotification",
+     "timeStamp": "2026-05-11T13:23:22Z",
+     "pmJobId": "4a876fea-...",
+     "objectType": "Vnf",
+     "objectInstanceId": "7beb68bb-...",
+     "_links": {
+       "performanceReport": {
+         "href": "http://<HOST>:9890/vnfpm/v2/pm_jobs/<pmJobId>/reports/<reportId>"
+       }
+     }
+   }
+
+4. Extract pmJobId and reportId from the notification and use the
+   PM Report Fetch script to retrieve the full report.
+
+
+Common Errors
+-------------
+
+HTTP 400  Bad Request       — Check payload fields (metric name, UUIDs, periods)
+HTTP 401  Unauthorized      — Keystone token fetch failed; check credentials
+HTTP 404  Not Found         — VNF instance ID not found; verify VNF_INSTANCE_ID
+HTTP 409  Conflict          — A conflicting PM job already exists
+HTTP 422  Unprocessable     — Payload is valid JSON but fails schema validation
+                              (e.g. reportingPeriod < collectionPeriod)

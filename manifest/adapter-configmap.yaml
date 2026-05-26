@@ -25,12 +25,34 @@ data:
       }
     }
 
-  # PM job creation in Tacker. Set URL and full JSON body here; no code change needed.
-  PM_JOB_CREATE_ON_STARTUP: "true"
-  PM_JOB_CREATE_STARTUP_DELAY_SECONDS: "2"
-  TACKER_PM_JOB_URL: "http://127.0.0.1:9890/vnfpm/v2/pm_jobs"
+  # Keystone / Tacker settings. These map to the working scripts:
+  # - pm_job_create/vnf_pm_job_create.sh
+  # - pm_report_fetch/vnf_pm_report_fetch.sh
+  # - heal_script/vnf_heal.sh
+  TACKER_AUTH_MODE: "keystone"
+  KEYSTONE_URL: "http://localhost/identity/v3/auth/tokens"
+  KEYSTONE_USER_DOMAIN_ID: "default"
+  KEYSTONE_PROJECT_NAME: "nfv"
+  KEYSTONE_PROJECT_DOMAIN_ID: "default"
+  KEYSTONE_VERIFY_SSL: "false"
+  KEYSTONE_TOKEN_CACHE_SECONDS: "300"
+
+  TACKER_PROTOCOL: "http"
+  TACKER_HOST: "10.0.0.108"
+  TACKER_PORT: "9890"
+  TACKER_API_VERSION: "v2"
+  TACKER_USER_AGENT: "python-tackerclient"
+  TACKER_API_VERSION_HEADER: "2.0.0"
   TACKER_VERIFY_SSL: "false"
   TACKER_REQUEST_TIMEOUT: "10"
+
+  # PM job creation in Tacker.
+  # Both URL and request body are configurable, so VNF ID, callback URL,
+  # metric, Prometheus host, Alertmanager host, and reload endpoint can be
+  # changed without code changes.
+  PM_JOB_CREATE_ON_STARTUP: "true"
+  PM_JOB_CREATE_STARTUP_DELAY_SECONDS: "2"
+  TACKER_PM_JOB_URL: "http://10.0.0.108:9890/vnfpm/v2/pm_jobs"
   TACKER_PM_JOB_BODY: |
     {
       "objectType": "Vnf",
@@ -80,42 +102,21 @@ data:
       }
     }
 
+  # Tacker validates and sends PM notifications to this callback.
+  PM_CALLBACK_USERNAME: "ubuntu"
+
   # Pushgateway / Prometheus endpoint used after fetching PM report from Tacker.
-  # For real Pushgateway use: http://<pushgateway-host>:9091
-  # For local mock endpoint in this adapter use: http://api-service
   PUSHGATEWAY_BASE_URL: "http://localhost:9091"
   PUSHGATEWAY_VERIFY_SSL: "false"
-  PERFORMANCE_METRICS_MOCK_MODE: "false"
 
-  # Devtron action APIs called when Prometheus/Alertmanager posts to /adapter/prometheus/alerts.
-  # Existing heal envs are retained for backward compatibility.
-  DEVTRON_HEALING_URL: "https://preview.devtron.ai/orchestrator/app/ci-pipeline/trigger"
-  DEVTRON_HEALING_VERIFY_SSL: "false"
-  DEVTRON_HEALING_BODY: |
-    {
-      "pipelineId": 337,
-      "ciPipelineMaterials": [
-        {
-          "Id": 344,
-          "GitCommit": {
-            "Commit": "1df32f437520f3d5f7d379511bdcb76ebf851cfb"
-          }
-        }
-      ],
-      "invalidateCache": false,
-      "pipelineType": "CI_BUILD",
-      "runtimeParams": {
-        "runtimePluginVariables": []
-      }
-    }
-
-  # Generic Devtron action map. Add future actions here without changing code.
-  # Existing /adapter/prometheus/alerts defaults to heal.
-  # New migrate can be triggered by /adapter/prometheus/alerts/migrate, ?action=migrate, or alert label action=migrate.
+  # Devtron action configuration.
+  # Adapter only invokes Devtron jobs. Devtron job implementation performs
+  # actual heal/migrate by invoking Tacker internally.
   DEFAULT_DEVTRON_ACTION: "heal"
   DEVTRON_ACTIONS: |
     {
       "heal": {
+        "type": "devtron",
         "url": "https://preview.devtron.ai/orchestrator/app/ci-pipeline/trigger",
         "verify_ssl": false,
         "body": {
@@ -131,11 +132,17 @@ data:
           "invalidateCache": false,
           "pipelineType": "CI_BUILD",
           "runtimeParams": {
-            "runtimePluginVariables": []
+            "runtimePluginVariables": [
+              {
+                "name": "ACTION",
+                "value": "heal"
+              }
+            ]
           }
         }
       },
       "migrate": {
+        "type": "devtron",
         "url": "https://preview.devtron.ai/orchestrator/app/ci-pipeline/trigger",
         "verify_ssl": false,
         "body": {
